@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bike Frame Classifier</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+
+    <style>
+        body {
+            background-color: #f2f2f2;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0;
+        }
+
+        h1 {
+            text-align: center;
+            margin-top: 20px; 
+        }
+
+        #drop-area {
+            display: block; 
+            background-color: #f7f7f7; 
+            padding: 40px; 
+            border: 2px solid #999; 
+            border-radius: 15px; 
+            text-align: center;
+            cursor: pointer;
+            margin-top: 20px;
+            margin-bottom: 20px; 
+        }
+
+        #preview-container {
+            display: none;
+            flex-direction: row;
+            justify-content: flex-start;
+            align-items: center;
+        }
+
+        #preview {
+            max-width: 100%;
+            max-height: 500px; 
+            margin: 20px 20px 20px 0; 
+        }
+
+        #prediction {
+            text-align: center;
+            margin-top: 20px;
+            transform: translateX(100%);
+            opacity: 0;
+            transition: transform 1s, opacity 1s;
+        }
+
+        #predict-button {
+            display: none;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 12pt;
+        }
+    </style>
+</head>
+<body>
+    <h1>Bike Frame Classifier</h1>
+    <div id="drop-area">
+        <h2>Drop Image Here</h2>
+    </div>
+    <div id="preview-container">
+        <img id="preview" src="" alt="Image preview">
+        <p id="prediction">Predicted: </p>
+    </div>
+    <button id="predict-button">Predict</button>
+
+    <script>
+        let model;
+        const dropArea = document.getElementById('drop-area');
+        const previewContainer = document.getElementById('preview-container');
+        const preview = document.getElementById('preview');
+        const prediction = document.getElementById('prediction');
+        const predictButton = document.getElementById('predict-button');
+
+        async function loadModel() {
+            console.log('Loading model...');
+            model = await tf.loadLayersModel('./tfjs_model/tfjs_model.json');
+            console.log('Model loaded.');
+        }
+
+        loadModel();
+
+        function showPreview() {
+            dropArea.style.display = 'none';
+            predictButton.style.display = 'block';
+            previewContainer.style.display = 'flex';
+            prediction.style.transform = 'translateX(0)';
+            prediction.style.opacity = '1';
+        }
+
+        dropArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropArea.classList.add('highlight');
+        });
+
+        ['dragleave', 'drop'].forEach((type) => {
+            dropArea.addEventListener(type, () => dropArea.classList.remove('highlight'));
+        });
+
+        dropArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            let file = e.dataTransfer.files[0];
+            previewFile(file);
+        });
+
+        function previewFile(file) {
+            let reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onloadend = function () {
+                preview.src = reader.result;
+                showPreview();
+            }
+        }
+
+        async function classifyImage(imageSrc) {
+            let img = new Image();
+            img.src = imageSrc;
+            img.onload = async function () {
+                let tensorImg = tf.browser.fromPixels(img).resizeNearestNeighbor([150, 150]).toFloat().div(tf.scalar(255)).expandDims();
+                let predictions = await model.predict(tensorImg).data();
+
+                const labels = ["Cannondale Supersix", "Cannondale SystemSix", "Cervelo P5", "Cervelo R5", "Cervelo S5", "Factor Hanzo", "Factor O2", "Factor Ostro", "Pinarello Dogma F", "Scott Foil", "Specialized Shiv", "Specialized Sl8", "Trek Emonda", "Trek Madone"];
+
+                let maxPrediction = Math.max(...predictions);
+                let predictedLabel = labels[predictions.indexOf(maxPrediction)];
+
+                return `Predicted: ${predictedLabel}`;
+            }
+        }
+
+        predictButton.addEventListener('click', async () => {
+            if (model) {
+                const result = await classifyImage(preview.src);
+                prediction.innerText = result;
+            }
+        });
+    </script>
+
+    <div class="footer">
+        <p>A project by Matthew Reynolds at WPI</p>
+    </div>
+</body>
+</html>
